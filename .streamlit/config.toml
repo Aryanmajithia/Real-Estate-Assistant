@@ -1,0 +1,4 @@
+[server]
+# Avoid noisy optional-module import checks from Streamlit's watcher
+# in cloud deployments (e.g., torchvision warnings from transformers).
+fileWatcherType = "none"
