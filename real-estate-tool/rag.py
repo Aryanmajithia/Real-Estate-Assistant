@@ -2,8 +2,10 @@
 
 from uuid import uuid4
 import os
+import requests
 from dotenv import load_dotenv
 from pathlib import Path
+from bs4 import BeautifulSoup
 try:
     from langchain_classic.chains import RetrievalQAWithSourcesChain
 except ImportError:
@@ -18,6 +20,7 @@ except ImportError:
 from langchain_chroma import Chroma
 from langchain_groq import ChatGroq
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from langchain_core.documents import Document
 
 load_dotenv()
 
@@ -30,6 +33,36 @@ DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 
 llm = None
 vector_store = None
+
+
+def _fallback_load_documents(urls):
+    documents = []
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
+    }
+
+    for url in urls:
+        try:
+            response = requests.get(url, headers=headers, timeout=20)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # Remove noisy content to keep only readable text.
+            for tag in soup(["script", "style", "noscript"]):
+                tag.extract()
+
+            text = soup.get_text(separator=" ", strip=True)
+            if text:
+                documents.append(Document(page_content=text, metadata={"source": url}))
+        except Exception:
+            # Ignore per-url failure and continue processing others.
+            continue
+
+    return documents
 
 
 def initialize_components():
@@ -74,10 +107,16 @@ def process_urls(urls):
     yield "Loading data...✅"
     loader = UnstructuredURLLoader(urls=urls)
     data = loader.load()
+
+    if not data:
+        yield "Primary URL loader failed, trying fallback parser...✅"
+        data = _fallback_load_documents(urls)
+
     if not data:
         raise RuntimeError(
             "No content could be loaded from the provided URLs. "
-            "Check that links are public and contain readable article text."
+            "Check that links are public, not blocked by paywalls/login, "
+            "and contain readable article text."
         )
 
     yield "Splitting text into chunks...✅"
