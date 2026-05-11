@@ -3,9 +3,17 @@
 from uuid import uuid4
 from dotenv import load_dotenv
 from pathlib import Path
-from langchain.chains import RetrievalQAWithSourcesChain
+try:
+    from langchain_classic.chains import RetrievalQAWithSourcesChain
+except ImportError:
+    # Fallback for older LangChain releases.
+    from langchain.chains import RetrievalQAWithSourcesChain
 from langchain_community.document_loaders import UnstructuredURLLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+except ImportError:
+    # Fallback for older LangChain releases.
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_groq import ChatGroq
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
