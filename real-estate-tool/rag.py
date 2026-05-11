@@ -1,6 +1,7 @@
 # @Author: Dhaval Patel Copyrights Codebasics Inc. and LearnerX Pvt Ltd.
 
 from uuid import uuid4
+import os
 from dotenv import load_dotenv
 from pathlib import Path
 try:
@@ -25,6 +26,7 @@ CHUNK_SIZE = 1000
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 VECTORSTORE_DIR = Path(__file__).parent / "resources/vectorstore"
 COLLECTION_NAME = "real_estate"
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 
 llm = None
 vector_store = None
@@ -34,7 +36,15 @@ def initialize_components():
     global llm, vector_store
 
     if llm is None:
-        llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.9, max_tokens=500)
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "Missing GROQ_API_KEY. Add it in Streamlit Cloud: "
+                "Manage app -> Settings -> Secrets."
+            )
+
+        model_name = os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL)
+        llm = ChatGroq(model=model_name, temperature=0.9, max_tokens=500)
 
     if vector_store is None:
         ef = HuggingFaceEmbeddings(

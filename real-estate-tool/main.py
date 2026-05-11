@@ -17,8 +17,11 @@ if process_url_button:
     if len(urls) == 0:
         placeholder.text("You must provide at least one valid url")
     else:
-        for status in process_urls(urls):
-            placeholder.text(status)
+        try:
+            for status in process_urls(urls):
+                placeholder.text(status)
+        except Exception as e:
+            placeholder.error(f"Failed to process URLs: {str(e)}")
 
 query = placeholder.text_input("Question")
 if query:
@@ -31,5 +34,7 @@ if query:
             st.subheader("Sources:")
             for source in sources.split("\n"):
                 st.write(source)
-    except RuntimeError as e:
+    except RuntimeError:
         placeholder.text("You must process urls first")
+    except Exception as e:
+        placeholder.error(f"Failed to generate answer: {str(e)}")
