@@ -74,6 +74,11 @@ def process_urls(urls):
     yield "Loading data...✅"
     loader = UnstructuredURLLoader(urls=urls)
     data = loader.load()
+    if not data:
+        raise RuntimeError(
+            "No content could be loaded from the provided URLs. "
+            "Check that links are public and contain readable article text."
+        )
 
     yield "Splitting text into chunks...✅"
     text_splitter = RecursiveCharacterTextSplitter(
@@ -81,6 +86,8 @@ def process_urls(urls):
         chunk_size=CHUNK_SIZE
     )
     docs = text_splitter.split_documents(data)
+    if not docs:
+        raise RuntimeError("No text chunks were created from the loaded content.")
 
     yield "Add chunks to vector database...✅"
     uuids = [str(uuid4()) for _ in range(len(docs))]
