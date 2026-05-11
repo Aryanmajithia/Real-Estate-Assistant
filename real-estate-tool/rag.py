@@ -37,6 +37,7 @@ vector_store = None
 
 def _fallback_load_documents(urls):
     documents = []
+    failures = []
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -58,11 +59,18 @@ def _fallback_load_documents(urls):
             text = soup.get_text(separator=" ", strip=True)
             if text:
                 documents.append(Document(page_content=text, metadata={"source": url}))
+            else:
+                failures.append(f"{url} -> empty text after HTML parsing")
+        except requests.exceptions.HTTPError as e:
+            failures.append(f"{url} -> HTTP error: {str(e)}")
+        except requests.exceptions.Timeout:
+            failures.append(f"{url} -> timeout")
+        except requests.exceptions.RequestException as e:
+            failures.append(f"{url} -> request failed: {str(e)}")
         except Exception:
-            # Ignore per-url failure and continue processing others.
-            continue
+            failures.append(f"{url} -> parsing failed")
 
-    return documents
+    return documents, failures
 
 
 def initialize_components():
@@ -106,17 +114,29 @@ def process_urls(urls):
 
     yield "Loading data...✅"
     loader = UnstructuredURLLoader(urls=urls)
-    data = loader.load()
+    data = []
+    primary_loader_error = None
+    try:
+        data = loader.load()
+    except Exception as e:
+        primary_loader_error = str(e)
 
     if not data:
         yield "Primary URL loader failed, trying fallback parser...✅"
-        data = _fallback_load_documents(urls)
+        data, fallback_failures = _fallback_load_documents(urls)
 
     if not data:
+        failure_details = []
+        if primary_loader_error:
+            failure_details.append(f"Primary loader error: {primary_loader_error}")
+        if "fallback_failures" in locals() and fallback_failures:
+            failure_details.append("Fallback details: " + " | ".join(fallback_failures))
+        details_text = " ".join(failure_details)
         raise RuntimeError(
             "No content could be loaded from the provided URLs. "
             "Check that links are public, not blocked by paywalls/login, "
-            "and contain readable article text."
+            "and contain readable article text. "
+            f"{details_text}"
         )
 
     yield "Splitting text into chunks...✅"
